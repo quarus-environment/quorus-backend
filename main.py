@@ -1,32 +1,42 @@
-# usage: export FLASK_APP=server.py && flask run
-
-from flask import Flask, flash, request, redirect, url_for, send_from_directory
+from flask import Flask, request, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
+from keras.models import model_from_json
+import numpy as np
+import tensorflow as tf
+
 import os
 
 UPLOAD_FOLDER = 'uploaded_files'
-ALLOWED_EXTENSIONS = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'])
-if not os.path.exists(UPLOAD_FOLDER): os.makedirs(UPLOAD_FOLDER)
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 
 app = Flask(__name__)
 CORS(app)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+json_file = open("mnist_model.json", "r")
+loaded_model_json = json_file.read()
+json_file.close()
+
+loaded_model = model_from_json(loaded_model_json)
+
+loaded_model.load_weights("mnist_model.h5")
+
+loaded_model.compile(loss="categorical_crossentropy", optimizer="SGD", metrics=["accuracy"])
+
 
 @app.route('/', methods=['POST'])
 def upload_file():
-    print(' * received form with', list(request.form.items()))
-    # check if the post request has the file part
-    print('132', request.files)
     request.files['file'].save(
         os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(request.files['file'].filename)))
-    # for file in request.files.getlist('files'):
-    #     if file and file.filename.split('.')[-1].lower() in ALLOWED_EXTENSIONS:
-    #         filename = secure_filename(file.filename)
-    #         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-    #         print(' * file uploaded', filename)
-    return request.files['file'].filename
+    img = tf.keras.utils.load_img(f"uploaded_files/{request.files['file'].filename}", target_size=(128, 128))
+    img_tensor = tf.keras.utils.img_to_array(img)
+    img_tensor = np.expand_dims(img_tensor, axis=0)
+    img_tensor /= 255.
+    predict = loaded_model.predict(img_tensor)
+    index = np.where(predict == predict.max())[1]
+    return {"file": request.files['file'].filename, "predict": "logitech"}
 
 
 @app.route('/uploaded_files/<path:path>')
