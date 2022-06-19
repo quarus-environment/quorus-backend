@@ -23,22 +23,22 @@ loaded_model = model_from_json(loaded_model_json)
 
 loaded_model.load_weights("mnist_model.h5")
 
-loaded_model.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True), optimizer="adam", metrics=["accuracy"])
+# loaded_model.compile(loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True), optimizer="adam", metrics=["accuracy"])
 
-results = ('oklick', "steel", "bloody", "defender", "logi", "razer")
+class_names = ("Bloody", "Defender", "Logitech", "Oklick", "Razer", "SteelSeries")
 
 
 @app.route('/', methods=['POST'])
 def upload_file():
     request.files['file'].save(
         os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(request.files['file'].filename)))
-    img = tf.keras.utils.load_img(f"uploaded_files/{request.files['file'].filename}", target_size=(180, 180))
+    img = tf.keras.utils.load_img(f"uploaded_files/{request.files['file'].filename}", target_size=(160, 160))
     img_tensor = tf.keras.utils.img_to_array(img)
-    img_tensor = np.expand_dims(img_tensor, 0)
+    img_tensor = tf.expand_dims(img_tensor, 0)
 
     predictions = loaded_model.predict(img_tensor)
     score = tf.nn.softmax(predictions[0])
-    return {"file": request.files['file'].filename, "predict": results[np.argmax(score)]}
+    return {"file": request.files['file'].filename, "predict": class_names[np.argmax(score)]}
 
 
 @app.route('/uploaded_files/<path:path>')
